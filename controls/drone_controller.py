@@ -101,9 +101,3 @@ class DroneController:
         self.motors.br = float(np.clip(base + dZ + d_roll - d_pitch, 0.0, max_T))
         self.motors.bl = float(np.clip(base + dZ - d_roll - d_pitch, 0.0, max_T))
 
-    def print_details(self) -> None:
-        print(
-            "DroneController | "
-            f"FL={self.motors.fl:.3f}  FR={self.motors.fr:.3f}"
-            f"  BR={self.motors.br:.3f}  BL={self.motors.bl:.3f}  N"
-        )

@@ -9,8 +9,9 @@ model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", 
 model = mujoco.MjModel.from_xml_path(model_path)
 data  = mujoco.MjData(model)
 
-mission = Mission((0, 0, 3), (0, 0, 0))
+mission = Mission((0, 0, 2), (0, 0, 0))
 controller = DroneController(model, data)
+controller.set_pos_in_world(0, 0, 2)
 
 target_z = mission.start[2]
 
