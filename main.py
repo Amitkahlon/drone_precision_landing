@@ -1,40 +1,29 @@
 import mujoco
 import mujoco.viewer
 import time
+import os
 
-# 1. הגדרת הסביבה הפיזיקלית בפורמט XML
-# המודל כולל תאורה, רצפה ירוקה-אפרפרה, וכדור אדום בגובה 2 מטרים
-xml_model = """
-<mujoco>
-    <worldbody>
-        <light pos="0 0 3" dir="0 0 -1"/>
+from controls import DroneController, Mission, Sensor
 
-        <geom name="floor" type="plane" size="10 10 0.1" rgba="0.8 0.9 0.8 1"/>
+model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "models", "drone.xml")
+model = mujoco.MjModel.from_xml_path(model_path)
+data  = mujoco.MjData(model)
 
-        <body name="ball" pos="0 0 2">
-            <joint name="free_joint" type="free"/>
-            <geom type="sphere" size="0.15" rgba="0.9 0.1 0.1 1" mass="1"/>
-        </body>
-    </worldbody>
-</mujoco>
-"""
+mission = Mission((0, 0, 3), (0, 0, 0))
+controller = DroneController(model, data)
 
-# 2. טעינת המודל הפיזיקלי לתוך מנוע MuJoCo
-model = mujoco.MjModel.from_xml_string(xml_model)
-data = mujoco.MjData(model)
+target_z = mission.start[2]
 
-# 3. הרצת חלון התצוגה הגרפי בצורה פאסיבית (לא חוסמת)
-print("מפעיל את סימולציית Hello World ב-MuJoCo...")
 with mujoco.viewer.launch_passive(model, data) as viewer:
-    # לולאת הריצה בזמן אמת - תמשיך לרוץ כל עוד החלון פתוח
     while viewer.is_running():
-        # קידום הסימולציה הפיזיקלית בצעד זמן אחד קטן (mj_step)
+        step_start = time.time()
+
+        controller.hover(target_z)
         mujoco.mj_step(model, data)
 
-        # סנכרון המצב הפיזיקלי החדש עם מה שרואים בחלון הגרפי
         viewer.sync()
 
-        # השהייה קלה כדי שקצב הריצה יתאים לעין אנושית (בערך 100 פריימים בשנייה)
-        time.sleep(0.01)
-
-print("החלון נסגר, הסימולציה הסתיימה בהצלחה!")
+        elapsed = time.time() - step_start
+        remaining = model.opt.timestep - elapsed
+        if remaining > 0:
+            time.sleep(remaining)
