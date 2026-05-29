@@ -1,7 +1,15 @@
 import numpy as np
+from typing import Protocol
 
 from .drone import Drone
 from .enums import DroneState
+
+
+class LandingTarget(Protocol):
+    @property
+    def position(self) -> np.ndarray: ...
+    @property
+    def velocity(self) -> np.ndarray: ...
 
 _KP_Z      = 0.5
 _KD_Z      = 0.4
@@ -14,20 +22,36 @@ _KD_XY     = 0.3
 _MAX_D_YAW = 0.5
 _MAX_TILT  = 0.15
 
-_ARRIVAL_THRESHOLD = 0.05
-_LANDING_THRESHOLD = 0.12   # chassis half-height is 0.055, so resting z ≈ 0.055
-_LANDING_SINK      = 0.5    # target this far below current z → ~0.5 m/s descent
+_ARRIVAL_THRESHOLD  = 0.05
+_LANDING_THRESHOLD  = 0.12   # chassis half-height is 0.055, so resting z ≈ 0.055
+_LANDING_SINK       = 0.5    # target this far below current z → ~0.5 m/s descent
+_HOVER_OFFSET       = 1.5    # metres above platform to hold while tracking
+_ALIGN_THRESHOLD    = 0.3    # XY error (m) below which landing descent begins
 
 
 class DroneController:
     def __init__(self, drone: Drone):
-        self.drone          = drone
-        self.state          = DroneState.GROUNDED
-        self._target_z:     float = 0.0
-        self._target_x:     float = 0.0
-        self._target_y:     float = 0.0
-        self._target_roll:  float = 0.0
-        self._target_pitch: float = 0.0
+        self.drone           = drone
+        self.state           = DroneState.GROUNDED
+        self._target_z:      float = 0.0
+        self._target_x:      float = 0.0
+        self._target_y:      float = 0.0
+        self._target_roll:   float = 0.0
+        self._target_pitch:  float = 0.0
+        self._landing_target: LandingTarget | None = None
+
+    # --- target tracking ---
+
+    def set_target(self, target: LandingTarget) -> None:
+        self._landing_target = target
+
+    @property
+    def target_position(self) -> np.ndarray | None:
+        return self._landing_target.position if self._landing_target else None
+
+    @property
+    def target_velocity(self) -> np.ndarray | None:
+        return self._landing_target.velocity if self._landing_target else None
 
     # --- public commands ---
 
@@ -68,6 +92,9 @@ class DroneController:
         d_yaw     = float(np.clip(_KP_YAW * yaw_error - _KD_YAW * yaw_rate, -_MAX_D_YAW, _MAX_D_YAW))
         self._apply_motors(d_yaw)
 
+    def track(self) -> None:
+        self.state = DroneState.TRACKING
+
     def step(self) -> None:
         if self.state == DroneState.GROUNDED:
             self._apply_grounded()
@@ -75,6 +102,8 @@ class DroneController:
             self._apply_taking_off()
         elif self.state == DroneState.HOVERING:
             self._apply_hovering()
+        elif self.state == DroneState.TRACKING:
+            self._apply_tracking()
         elif self.state == DroneState.LANDING:
             self._apply_landing()
 
@@ -91,17 +120,45 @@ class DroneController:
         if abs(self.drone.get_z() - self._target_z) < _ARRIVAL_THRESHOLD:
             self._target_x = self.drone.get_x()
             self._target_y = self.drone.get_y()
-            self.state     = DroneState.HOVERING
+            self.state     = DroneState.TRACKING if self._landing_target else DroneState.HOVERING
 
     def _apply_hovering(self) -> None:
         self._update_position_hold()
         self._apply_motors()
 
-    def _apply_landing(self) -> None:
-        self._target_z = max(0.0, self.drone.get_z() - _LANDING_SINK)
+    def _apply_tracking(self) -> None:
+        target = self._landing_target
+        if target is None:
+            self._apply_hovering()
+            return
+
+        pos = target.position
+        self._target_x = float(pos[0])
+        self._target_y = float(pos[1])
+        self._target_z = float(pos[2]) + _HOVER_OFFSET
+
         self._update_position_hold()
         self._apply_motors()
-        if self.drone.get_z() < _LANDING_THRESHOLD:
+
+        error_xy = np.sqrt(
+            (self.drone.get_x() - self._target_x) ** 2 +
+            (self.drone.get_y() - self._target_y) ** 2
+        )
+        if error_xy < _ALIGN_THRESHOLD:
+            self.state = DroneState.LANDING
+
+    def _apply_landing(self) -> None:
+        floor_z = 0.0
+        if self._landing_target is not None:
+            pos = self._landing_target.position
+            self._target_x = float(pos[0])
+            self._target_y = float(pos[1])
+            floor_z        = float(pos[2])
+
+        self._target_z = max(floor_z, self.drone.get_z() - _LANDING_SINK)
+        self._update_position_hold()
+        self._apply_motors()
+        if self.drone.get_z() < floor_z + _LANDING_THRESHOLD:
             self.state = DroneState.GROUNDED
             self._apply_grounded()
 
@@ -112,8 +169,11 @@ class DroneController:
         error_y = self._target_y - self.drone.get_y()
         vx = self.drone.sensors.linvel[0]
         vy = self.drone.sensors.linvel[1]
-        self._target_pitch = float(np.clip( _KP_XY * error_x - _KD_XY * vx, -_MAX_TILT, _MAX_TILT))
-        self._target_roll  = float(np.clip(-(_KP_XY * error_y - _KD_XY * vy), -_MAX_TILT, _MAX_TILT))
+
+        # feed-forward: subtract platform velocity so the drone rides with the target
+        ff = self._landing_target.velocity if self._landing_target else np.zeros(3)
+        self._target_pitch = float(np.clip( _KP_XY * error_x - _KD_XY * (vx - ff[0]), -_MAX_TILT, _MAX_TILT))
+        self._target_roll  = float(np.clip(-(_KP_XY * error_y - _KD_XY * (vy - ff[1])), -_MAX_TILT, _MAX_TILT))
 
     def _get_yaw(self) -> float:
         w, x, y, z = self.drone.sensors.quat

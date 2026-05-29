@@ -19,6 +19,16 @@ class MovingPlatform:
     def position(self) -> np.ndarray:
         return self._pos.copy()
 
+    @property
+    def velocity(self) -> np.ndarray:
+        next_idx  = (self._idx + 1) % len(self.waypoints)
+        target    = self.waypoints[next_idx].position
+        direction = target - self._pos
+        distance  = np.linalg.norm(direction)
+        if distance < 1e-6:
+            return np.zeros(3)
+        return (direction / distance) * self.waypoints[self._idx].speed
+
     def _bind(self, mocap_id: int, data: mujoco.MjData) -> None:
         self._mocap_id = mocap_id
         self._data     = data
