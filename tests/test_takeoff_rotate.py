@@ -10,13 +10,13 @@ import numpy as np
 from controls import Drone, DroneController, Mission, SceneBuilder, DroneState
 
 model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "models", "drone.xml")
-model = mujoco.MjModel.from_xml_path(model_path)
-data  = mujoco.MjData(model)
+
+scene       = SceneBuilder(model_path)
+model, data = scene.build()
 
 drone      = Drone(model, data)
 controller = DroneController(drone)
 
-scene = SceneBuilder(model, data)
 scene.add_drone("main", drone)
 scene.apply_mission(Mission((0, 0, 0), (0, 0, 0)))
 
