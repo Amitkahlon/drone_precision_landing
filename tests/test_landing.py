@@ -1,5 +1,6 @@
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import mujoco
@@ -11,10 +12,10 @@ from controls import Drone, DroneController, Mission, SceneBuilder, DroneState
 
 model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "models", "drone.xml")
 
-scene       = SceneBuilder(model_path)
+scene = SceneBuilder(model_path)
 model, data = scene.build()
 
-drone      = Drone(model, data)
+drone = Drone(model, data)
 controller = DroneController(drone)
 
 scene.add_drone("main", drone)
@@ -24,8 +25,9 @@ controller.take_off(3.0)
 
 HOVER_DURATION = 3.0
 
-hover_start_time  = None
+hover_start_time = None
 landing_triggered = False
+
 
 def update_label(viewer, label: str) -> None:
     viewer.user_scn.ngeom = 1
@@ -39,6 +41,7 @@ def update_label(viewer, label: str) -> None:
     g.pos[:] = [drone.get_x(), drone.get_y(), drone.get_z() + 0.4]
     g.size[:] = [0.01, 0.01, 0.01]
     g.label = label
+
 
 with mujoco.viewer.launch_passive(model, data) as viewer:
     while viewer.is_running():

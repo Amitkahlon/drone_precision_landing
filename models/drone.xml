@@ -1,71 +1,75 @@
 <mujoco model="quadrotor">
-  <compiler angle="radian"/>
-  <option gravity="0 0 -9.81" timestep="0.002"/>
+    <compiler angle="radian"/>
+    <option gravity="0 0 -9.81" timestep="0.002"/>
 
-  <worldbody>
-    <light pos="0 0 10"   dir="0 0 -1"      diffuse="0.8 0.8 0.8" specular="0.3 0.3 0.3"/>
-    <light pos="5 -5 5"  dir="-1 1 -1"    diffuse="0.6 0.6 0.6" specular="0.1 0.1 0.1"/>
-    <light pos="-5 5 3"  dir="1 -1 -0.5"  diffuse="0.4 0.4 0.4" specular="0.1 0.1 0.1"/>
-    <geom name="floor" type="plane" size="20 20 0.1" rgba="0.2 0.6 0.2 1"/>
+    <worldbody>
+        <light pos="0 0 10" dir="0 0 -1" diffuse="0.8 0.8 0.8" specular="0.3 0.3 0.3"/>
+        <light pos="5 -5 5" dir="-1 1 -1" diffuse="0.6 0.6 0.6" specular="0.1 0.1 0.1"/>
+        <light pos="-5 5 3" dir="1 -1 -0.5" diffuse="0.4 0.4 0.4" specular="0.1 0.1 0.1"/>
+        <geom name="floor" type="plane" size="20 20 0.1" rgba="0.2 0.6 0.2 1"/>
 
-    <body name="drone" pos="0 0 1">
-      <joint name="root" type="free"/>
+        <body name="drone" pos="0 0 1">
+            <joint name="root" type="free"/>
 
-      <!-- Central chassis — vivid orange -->
-      <geom type="box" size="0.1 0.1 0.055" rgba="1.0 0.42 0.0 1" mass="0.3"/>
+            <!-- Central chassis — vivid orange -->
+            <geom type="box" size="0.1 0.1 0.055" rgba="1.0 0.42 0.0 1" mass="0.3"/>
 
-      <!-- X-frame arms — rotated 45° so each arm reaches a diagonal motor corner -->
-      <geom type="box" size="0.29 0.03 0.018" euler="0 0  0.7854" rgba="0.15 0.15 0.15 1" mass="0.05"/>
-      <geom type="box" size="0.29 0.03 0.018" euler="0 0 -0.7854" rgba="0.15 0.15 0.15 1" mass="0.05"/>
+            <!-- X-frame arms — rotated 45° so each arm reaches a diagonal motor corner -->
+            <geom type="box" size="0.29 0.03 0.018" euler="0 0  0.7854" rgba="0.15 0.15 0.15 1" mass="0.05"/>
+            <geom type="box" size="0.29 0.03 0.018" euler="0 0 -0.7854" rgba="0.15 0.15 0.15 1" mass="0.05"/>
 
-      <!-- Motor columns — matte black (base at arm top z=0.018, half-height=0.035 → top at z=0.088) -->
-      <geom type="cylinder" size="0.026 0.035" pos=" 0.2  0.2 0.053" rgba="0.08 0.08 0.08 1" mass="0.01"/>
-      <geom type="cylinder" size="0.026 0.035" pos=" 0.2 -0.2 0.053" rgba="0.08 0.08 0.08 1" mass="0.01"/>
-      <geom type="cylinder" size="0.026 0.035" pos="-0.2 -0.2 0.053" rgba="0.08 0.08 0.08 1" mass="0.01"/>
-      <geom type="cylinder" size="0.026 0.035" pos="-0.2  0.2 0.053" rgba="0.08 0.08 0.08 1" mass="0.01"/>
+            <!-- Motor columns — matte black (base at arm top z=0.018, half-height=0.035 → top at z=0.088) -->
+            <geom type="cylinder" size="0.026 0.035" pos=" 0.2  0.2 0.053" rgba="0.08 0.08 0.08 1" mass="0.01"/>
+            <geom type="cylinder" size="0.026 0.035" pos=" 0.2 -0.2 0.053" rgba="0.08 0.08 0.08 1" mass="0.01"/>
+            <geom type="cylinder" size="0.026 0.035" pos="-0.2 -0.2 0.053" rgba="0.08 0.08 0.08 1" mass="0.01"/>
+            <geom type="cylinder" size="0.026 0.035" pos="-0.2  0.2 0.053" rgba="0.08 0.08 0.08 1" mass="0.01"/>
 
-      <!--
-        Rotors on top of columns (z=0.088), half-height=0.007 → centre at z=0.095
-        FL = bright green   FR = bright blue
-        BR = bright yellow  BL = bright orange
-      -->
-      <geom name="rotor_fl" type="cylinder" size="0.09 0.007" pos=" 0.2  0.2 0.095" rgba="0.05 0.95 0.05 1" mass="0.015"/>
-      <geom name="rotor_fr" type="cylinder" size="0.09 0.007" pos=" 0.2 -0.2 0.095" rgba="0.05 0.35 1.00 1" mass="0.015"/>
-      <geom name="rotor_br" type="cylinder" size="0.09 0.007" pos="-0.2 -0.2 0.095" rgba="1.00 0.95 0.00 1" mass="0.015"/>
-      <geom name="rotor_bl" type="cylinder" size="0.09 0.007" pos="-0.2  0.2 0.095" rgba="1.00 0.45 0.00 1" mass="0.015"/>
+            <!--
+              Rotors on top of columns (z=0.088), half-height=0.007 → centre at z=0.095
+              FL = bright green   FR = bright blue
+              BR = bright yellow  BL = bright orange
+            -->
+            <geom name="rotor_fl" type="cylinder" size="0.09 0.007" pos=" 0.2  0.2 0.095" rgba="0.05 0.95 0.05 1"
+                  mass="0.015"/>
+            <geom name="rotor_fr" type="cylinder" size="0.09 0.007" pos=" 0.2 -0.2 0.095" rgba="0.05 0.35 1.00 1"
+                  mass="0.015"/>
+            <geom name="rotor_br" type="cylinder" size="0.09 0.007" pos="-0.2 -0.2 0.095" rgba="1.00 0.95 0.00 1"
+                  mass="0.015"/>
+            <geom name="rotor_bl" type="cylinder" size="0.09 0.007" pos="-0.2  0.2 0.095" rgba="1.00 0.45 0.00 1"
+                  mass="0.015"/>
 
-      <!-- Forward marker — red -->
-      <geom type="sphere" size="0.025" pos="0.11 0 0.055" rgba="1.0 0.05 0.05 1" mass="0.005"/>
+            <!-- Forward marker — red -->
+            <geom type="sphere" size="0.025" pos="0.11 0 0.055" rgba="1.0 0.05 0.05 1" mass="0.005"/>
 
-      <!-- IMU at body centre -->
-      <site name="imu" size="0.01"/>
+            <!-- IMU at body centre -->
+            <site name="imu" size="0.01"/>
 
-      <!-- Motor thrust sites — forces applied here are in body frame -->
-      <site name="motor_fl_site" pos=" 0.2  0.2 0.095"/>
-      <site name="motor_fr_site" pos=" 0.2 -0.2 0.095"/>
-      <site name="motor_br_site" pos="-0.2 -0.2 0.095"/>
-      <site name="motor_bl_site" pos="-0.2  0.2 0.095"/>
-    </body>
-  </worldbody>
+            <!-- Motor thrust sites — forces applied here are in body frame -->
+            <site name="motor_fl_site" pos=" 0.2  0.2 0.095"/>
+            <site name="motor_fr_site" pos=" 0.2 -0.2 0.095"/>
+            <site name="motor_br_site" pos="-0.2 -0.2 0.095"/>
+            <site name="motor_bl_site" pos="-0.2  0.2 0.095"/>
+        </body>
+    </worldbody>
 
-  <actuator>
-    <!--
-      Site-based motors: force [0 0 1] is in body frame (tilts with the drone).
-      Moment-arm torques (roll/pitch) are automatic from off-centre site positions.
-      gear[5] = ±0.01 is the yaw reactive torque from each rotor's spin direction.
-    -->
-    <motor name="motor_fl" site="motor_fl_site" gear="0 0 1 0 0  0.01" ctrlrange="0 4"/>
-    <motor name="motor_fr" site="motor_fr_site" gear="0 0 1 0 0 -0.01" ctrlrange="0 4"/>
-    <motor name="motor_br" site="motor_br_site" gear="0 0 1 0 0  0.01" ctrlrange="0 4"/>
-    <motor name="motor_bl" site="motor_bl_site" gear="0 0 1 0 0 -0.01" ctrlrange="0 4"/>
-  </actuator>
+    <actuator>
+        <!--
+          Site-based motors: force [0 0 1] is in body frame (tilts with the drone).
+          Moment-arm torques (roll/pitch) are automatic from off-centre site positions.
+          gear[5] = ±0.01 is the yaw reactive torque from each rotor's spin direction.
+        -->
+        <motor name="motor_fl" site="motor_fl_site" gear="0 0 1 0 0  0.01" ctrlrange="0 4"/>
+        <motor name="motor_fr" site="motor_fr_site" gear="0 0 1 0 0 -0.01" ctrlrange="0 4"/>
+        <motor name="motor_br" site="motor_br_site" gear="0 0 1 0 0  0.01" ctrlrange="0 4"/>
+        <motor name="motor_bl" site="motor_bl_site" gear="0 0 1 0 0 -0.01" ctrlrange="0 4"/>
+    </actuator>
 
-  <sensor>
-    <accelerometer name="accel"  site="imu"/>
-    <gyro          name="gyro"   site="imu"/>
-    <framepos      name="pos"    objtype="site" objname="imu"/>
-    <framequat     name="quat"   objtype="site" objname="imu"/>
-    <framelinvel   name="linvel" objtype="site" objname="imu"/>
-    <frameangvel   name="angvel" objtype="site" objname="imu"/>
-  </sensor>
+    <sensor>
+        <accelerometer name="accel" site="imu"/>
+        <gyro name="gyro" site="imu"/>
+        <framepos name="pos" objtype="site" objname="imu"/>
+        <framequat name="quat" objtype="site" objname="imu"/>
+        <framelinvel name="linvel" objtype="site" objname="imu"/>
+        <frameangvel name="angvel" objtype="site" objname="imu"/>
+    </sensor>
 </mujoco>

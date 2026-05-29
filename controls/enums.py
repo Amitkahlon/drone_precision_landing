@@ -9,18 +9,18 @@ class Motor(IntEnum):
 
 
 class DroneState(Enum):
-    GROUNDED    = auto()
-    TAKING_OFF  = auto()
-    HOVERING    = auto()
-    FLYING      = auto()
-    TRACKING    = auto()
-    LANDING     = auto()
+    GROUNDED = auto()
+    TAKING_OFF = auto()
+    HOVERING = auto()
+    FLYING = auto()
+    TRACKING = auto()
+    LANDING = auto()
 
 
 class Sensor(StrEnum):
-    ACCEL  = "accel"   # accelerometer  (3,) m/s²
-    GYRO   = "gyro"    # gyroscope      (3,) rad/s
-    POS    = "pos"     # position       (3,) m
-    QUAT   = "quat"    # orientation    (4,) quaternion
-    LINVEL = "linvel"  # linear velocity  (3,) m/s
-    ANGVEL = "angvel"  # angular velocity (3,) rad/s
+    ACCEL = "accel"
+    GYRO = "gyro"
+    POS = "pos"
+    QUAT = "quat"
+    LINVEL = "linvel"
+    ANGVEL = "angvel"

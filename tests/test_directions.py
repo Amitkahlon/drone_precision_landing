@@ -1,5 +1,6 @@
-import sys
 import os
+import sys
+
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import mujoco
@@ -11,10 +12,10 @@ from controls import Drone, DroneController, Mission, SceneBuilder, DroneState
 
 model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "models", "drone.xml")
 
-scene       = SceneBuilder(model_path)
+scene = SceneBuilder(model_path)
 model, data = scene.build()
 
-drone      = Drone(model, data)
+drone = Drone(model, data)
 controller = DroneController(drone)
 
 scene.add_drone("main", drone)
@@ -23,17 +24,17 @@ scene.apply_mission(Mission((0, 0, 0), (0, 0, 0)))
 controller.take_off(3.0)
 
 PHASES = [
-    (lambda: controller.fly(  0, 0.4), "fly forward",  3.0),
-    (lambda: controller.step(),         "return center", 6.0),
-    (lambda: controller.fly( 90, 0.4), "fly right",     3.0),
-    (lambda: controller.step(),         "return center", 6.0),
-    (lambda: controller.fly(180, 0.4), "fly backward",  3.0),
-    (lambda: controller.step(),         "return center", 6.0),
-    (lambda: controller.fly(270, 0.4), "fly left",      3.0),
-    (lambda: controller.step(),         "return center", 6.0),
+    (lambda: controller.fly(0, 0.4), "fly forward", 3.0),
+    (lambda: controller.step(), "return center", 6.0),
+    (lambda: controller.fly(90, 0.4), "fly right", 3.0),
+    (lambda: controller.step(), "return center", 6.0),
+    (lambda: controller.fly(180, 0.4), "fly backward", 3.0),
+    (lambda: controller.step(), "return center", 6.0),
+    (lambda: controller.fly(270, 0.4), "fly left", 3.0),
+    (lambda: controller.step(), "return center", 6.0),
 ]
 
-TOTAL_CYCLE   = sum(d for _, _, d in PHASES)
+TOTAL_CYCLE = sum(d for _, _, d in PHASES)
 PHASE_OFFSETS = []
 t = 0.0
 for _, _, d in PHASES:
@@ -42,12 +43,14 @@ for _, _, d in PHASES:
 
 hover_start_time = None
 
+
 def current_phase(elapsed: float):
     idx = 0
     for i, offset in enumerate(PHASE_OFFSETS):
         if elapsed >= offset:
             idx = i
     return PHASES[idx]
+
 
 def update_label(viewer, label: str) -> None:
     viewer.user_scn.ngeom = 1
@@ -61,6 +64,7 @@ def update_label(viewer, label: str) -> None:
     g.pos[:] = [drone.get_x(), drone.get_y(), drone.get_z() + 0.4]
     g.size[:] = [0.01, 0.01, 0.01]
     g.label = label
+
 
 with mujoco.viewer.launch_passive(model, data) as viewer:
     while viewer.is_running():

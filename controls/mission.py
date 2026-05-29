@@ -1,12 +1,12 @@
 import numpy as np
 
-from .platform import Platform, Waypoint
 from .moving_platform import MovingPlatform
+from .platform import Platform, Waypoint
 
 
 class Mission:
     def __init__(self, start: tuple, platform: Platform):
-        self.start     = np.array(start, dtype=float)
+        self.start = np.array(start, dtype=float)
         self._platform = platform
         self._checkpoints: list[Waypoint] = []
 

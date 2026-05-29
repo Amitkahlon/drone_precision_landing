@@ -7,11 +7,11 @@ from .moving_platform import MovingPlatform
 
 class SceneBuilder:
     def __init__(self, xml_path: str):
-        self._xml_path          = xml_path
-        self._drones:           dict[str, Drone]          = {}
+        self._xml_path = xml_path
+        self._drones: dict[str, Drone] = {}
         self._moving_platforms: dict[str, MovingPlatform] = {}
         self.model: mujoco.MjModel | None = None
-        self.data:  mujoco.MjData  | None = None
+        self.data: mujoco.MjData | None = None
 
     # --- pre-build registration ---
 
@@ -20,7 +20,7 @@ class SceneBuilder:
 
     def build(self) -> tuple[mujoco.MjModel, mujoco.MjData]:
         self.model = mujoco.MjModel.from_xml_string(self._build_xml())
-        self.data  = mujoco.MjData(self.model)
+        self.data = mujoco.MjData(self.model)
         self._bind_platforms()
         return self.model, self.data
 
@@ -57,9 +57,9 @@ class SceneBuilder:
         return xml
 
     def _platform_xml(self, key: str, mp: MovingPlatform) -> str:
-        p          = mp.platform
+        p = mp.platform
         r, g, b, a = p.color
-        pos        = mp.waypoints[0].position
+        pos = mp.waypoints[0].position
         return (
             f'<body name="platform_{key}" mocap="true" '
             f'pos="{pos[0]} {pos[1]} {pos[2]}">'
@@ -70,12 +70,12 @@ class SceneBuilder:
 
     def _bind_platforms(self) -> None:
         for key, mp in self._moving_platforms.items():
-            body_id  = self.model.body(f"platform_{key}").id
+            body_id = self.model.body(f"platform_{key}").id
             mocap_id = self.model.body_mocapid[body_id]
             mp._bind(mocap_id, self.data)
 
     def _place_drone(self, drone: Drone, x: float, y: float, z: float) -> None:
         adr = drone.qpos_adr
-        self.data.qpos[adr : adr + 3]     = [x, y, z]
-        self.data.qpos[adr + 3 : adr + 7] = [1, 0, 0, 0]  # identity quaternion
+        self.data.qpos[adr:adr + 3] = [x, y, z]
+        self.data.qpos[adr + 3:adr + 7] = [1, 0, 0, 0]
         mujoco.mj_forward(self.model, self.data)
