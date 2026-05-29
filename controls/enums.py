@@ -1,4 +1,4 @@
-from enum import IntEnum, StrEnum
+from enum import IntEnum, StrEnum, auto, Enum
 
 
 class Motor(IntEnum):
@@ -6,6 +6,14 @@ class Motor(IntEnum):
     FR = 1  # front-right (blue,   CW)
     BR = 2  # back-right  (yellow, CCW)
     BL = 3  # back-left   (orange, CW)
+
+
+class DroneState(Enum):
+    GROUNDED    = auto()
+    TAKING_OFF  = auto()
+    HOVERING    = auto()
+    FLYING      = auto()
+    LANDING     = auto()
 
 
 class Sensor(StrEnum):
