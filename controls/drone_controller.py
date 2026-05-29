@@ -15,6 +15,8 @@ _MAX_D_YAW = 0.5
 _MAX_TILT  = 0.15
 
 _ARRIVAL_THRESHOLD = 0.05
+_LANDING_THRESHOLD = 0.12   # chassis half-height is 0.055, so resting z ≈ 0.055
+_LANDING_SINK      = 0.5    # target this far below current z → ~0.5 m/s descent
 
 
 class DroneController:
@@ -96,9 +98,12 @@ class DroneController:
         self._apply_motors()
 
     def _apply_landing(self) -> None:
+        self._target_z = max(0.0, self.drone.get_z() - _LANDING_SINK)
+        self._update_position_hold()
         self._apply_motors()
-        if self.drone.get_z() < _ARRIVAL_THRESHOLD:
+        if self.drone.get_z() < _LANDING_THRESHOLD:
             self.state = DroneState.GROUNDED
+            self._apply_grounded()
 
     # --- internals ---
 
