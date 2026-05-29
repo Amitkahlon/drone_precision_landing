@@ -1,6 +1,6 @@
 <mujoco model="quadrotor">
   <compiler angle="radian"/>
-  <option gravity="0 0 -9.81" wind="1.0 0.5 0" timestep="0.002"/>
+  <option gravity="0 0 -9.81" timestep="0.002"/>
 
   <worldbody>
     <light pos="0 0 10"   dir="0 0 -1"      diffuse="0.8 0.8 0.8" specular="0.3 0.3 0.3"/>
@@ -39,18 +39,25 @@
 
       <!-- IMU at body centre -->
       <site name="imu" size="0.01"/>
+
+      <!-- Motor thrust sites — forces applied here are in body frame -->
+      <site name="motor_fl_site" pos=" 0.2  0.2 0.095"/>
+      <site name="motor_fr_site" pos=" 0.2 -0.2 0.095"/>
+      <site name="motor_br_site" pos="-0.2 -0.2 0.095"/>
+      <site name="motor_bl_site" pos="-0.2  0.2 0.095"/>
     </body>
   </worldbody>
 
   <actuator>
     <!--
-      gear = [fx fy fz | tx ty tz] in body frame.
-      Motor positions kept at (±0.2, ±0.2) — physics unchanged.
+      Site-based motors: force [0 0 1] is in body frame (tilts with the drone).
+      Moment-arm torques (roll/pitch) are automatic from off-centre site positions.
+      gear[5] = ±0.01 is the yaw reactive torque from each rotor's spin direction.
     -->
-    <motor name="motor_fl" joint="root" gear="0 0 1  0.2 -0.2  0.01" ctrlrange="0 4"/>
-    <motor name="motor_fr" joint="root" gear="0 0 1 -0.2 -0.2 -0.01" ctrlrange="0 4"/>
-    <motor name="motor_br" joint="root" gear="0 0 1 -0.2  0.2  0.01" ctrlrange="0 4"/>
-    <motor name="motor_bl" joint="root" gear="0 0 1  0.2  0.2 -0.01" ctrlrange="0 4"/>
+    <motor name="motor_fl" site="motor_fl_site" gear="0 0 1 0 0  0.01" ctrlrange="0 4"/>
+    <motor name="motor_fr" site="motor_fr_site" gear="0 0 1 0 0 -0.01" ctrlrange="0 4"/>
+    <motor name="motor_br" site="motor_br_site" gear="0 0 1 0 0  0.01" ctrlrange="0 4"/>
+    <motor name="motor_bl" site="motor_bl_site" gear="0 0 1 0 0 -0.01" ctrlrange="0 4"/>
   </actuator>
 
   <sensor>
