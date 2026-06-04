@@ -56,7 +56,7 @@ def update_label(viewer, label: str) -> None:
         np.zeros(3), np.zeros(3), np.eye(3).flatten(),
         np.array([0.0, 0.0, 0.0, 0.0]),
     )
-    g.pos[:] = [drone.get_x(), drone.get_y(), drone.get_z() + 0.4]
+    g.pos[:] = [drone.position.x, drone.position.y, drone.position.z + 0.4]
     g.size[:] = [0.01, 0.01, 0.01]
     g.label = label
 

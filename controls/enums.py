@@ -17,9 +17,8 @@ class DroneState(Enum):
 
 
 class Sensor(StrEnum):
-    ACCEL = "accel"  # accelerometer  (3,) m/s²
-    GYRO = "gyro"  # gyroscope      (3,) rad/s
-    POS = "pos"  # position       (3,) m
-    QUAT = "quat"  # orientation    (4,) quaternion
-    LINVEL = "linvel"  # linear velocity  (3,) m/s
-    ANGVEL = "angvel"  # angular velocity (3,) rad/s
+    POS    = "pos"    # where am I?          (3,) m
+    QUAT   = "quat"   # which way am I tilted? (4,) quaternion
+    LINVEL = "linvel" # how fast am I moving? (3,) m/s
+    ANGVEL = "angvel" # how fast am I rotating in world frame? (3,) rad/s
+    GYRO   = "gyro"   # how fast am I rotating in body frame? (3,) rad/s
