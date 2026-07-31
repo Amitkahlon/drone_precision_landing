@@ -1,55 +1,75 @@
 # Drone Precision Landing
 
 A [MuJoCo](https://mujoco.readthedocs.io/) simulation of a quadrotor that takes off, tracks a moving
-landing platform, and lands on it. The quadrotor model lives in `models/drone.xml`; the control stack
-lives in `controls/`.
+landing platform, and lands on it. Scenarios can be flown one at a time in the viewer or in headless
+batches to measure how often the controller succeeds.
 
 ## Setup
 
 ```bash
 source .venv/bin/activate
+pip install -e ".[dev]"
 ```
 
-Dependencies are pinned in `requirements.txt` (`mujoco`, `numpy`, `matplotlib`, `glfw`, `PyOpenGL`).
-The scenario generator and batch runner add nothing beyond the standard library.
+The editable install is what puts `drone_landing` on the import path and creates the `drone-fly` and
+`drone-batch` commands. Runtime dependencies are pinned in `requirements.txt` (`mujoco`, `numpy`,
+`glfw`, `PyOpenGL`); `requirements-dev.txt` adds `pytest`.
 
-## Hand-built scenarios
+## Layout
 
-`missions/mission1.py` (2 waypoints at 0.8 m/s) and `missions/mission2.py` (a 4-waypoint square at
-1.2 m/s) define the platform trajectory by hand and open the viewer. `python main.py` runs mission1.
+```
+src/drone_landing/
+  settings.py      paths, timeouts and world limits
+  enums.py         Motor, Sensor, DroneState
+  assets/          the MJCF quadrotor model
+  drone/           Drone, plus named motor and sensor accessors
+  control/         the flight state machine, its PD loops and its gains
+  scene/           Mission, Platform, MovingPlatform and the MJCF scene builder
+  scenarios/       ScenarioConfig and the seeded random generator
+  simulation/      flight assembly, the run loop, results and viewer plumbing
+  missions/        hand-built reference missions
+  batch/           per-run records, batch summaries and their report
+  cli/             the drone-fly and drone-batch entry points
+demos/             interactive viewer scripts for individual manoeuvres
+tests/             headless pytest suite
+results/           batch output (gitignored)
+```
+
+The dependency direction runs one way: `cli` uses `simulation` and `batch`, `simulation` uses `scene`
+and `control`, and `control` uses `drone`. Nothing lower reaches back up.
+
+## Flying a single scenario
+
+```bash
+drone-fly                      # straight-line reference mission
+drone-fly square               # square-circuit reference mission
+drone-fly random               # a fresh random scenario, seed printed on start
+drone-fly random --seed 12345  # replay seed 12345
+```
+
+The two reference missions leave the viewer open after the drone settles, so you can inspect the final
+state; `random` closes as soon as the run resolves and prints the outcome.
 
 A mission is a start position for the drone plus a cyclic list of platform waypoints, where each
 waypoint carries the speed of the leg leaving it:
 
 ```python
+from drone_landing import Mission, Platform
+
 mission = Mission(start=(0, 0, 0), platform=Platform(width=1.0, depth=1.0, thickness=0.05))
 mission.add_checkpoint((5, 5, 0.5), speed=0.8)
 mission.add_checkpoint((-5, 5, 0.5), speed=0.8)
 ```
 
-## Randomized scenarios
-
-`controls/scenario_generator.py` samples those same waypoints and per-leg speeds from a seeded RNG,
-and `controls/simulation.py` flies any mission end to end — headless for batches, or in the viewer for
-debugging. Neither the sample missions nor the controller are touched; the generator only produces
-mission definitions and the runner only calls into the existing classes.
-
-### One scenario, in the viewer
+## Running a batch
 
 ```bash
-python missions/random_mission.py          # fresh random scenario, seed printed on start
-python missions/random_mission.py 12345    # replay seed 12345
-```
-
-### A batch, headless
-
-```bash
-python batch_runner.py --runs 50
+drone-batch --runs 50
 ```
 
 Runs are roughly 40x faster than real time, so 50 scenarios take about 15 seconds. Each run appends a
-JSON object to `results/runs.jsonl`, so repeated batches accumulate into one dataset. A per-batch
-summary is written to `results/summary_<batch_id>.json` and printed:
+JSON object to `results/runs.jsonl` relative to the working directory, so repeated batches accumulate
+into one dataset. A per-batch summary is written beside it as `summary_<batch_id>.json` and printed:
 
 ```
 50 runs, 39 succeeded (78.0%), 11 off-platform, 0 timed out, 0 diverged
@@ -71,7 +91,7 @@ Run `i` of a batch uses seed `base_seed + i`, and every record stores its own se
 replays exactly:
 
 ```bash
-python batch_runner.py --seed 2002 --runs 1 --viewer
+drone-batch --seed 2002 --runs 1 --viewer
 ```
 
 The batch summary prints this command for the first failing seed, and lists all of them under
@@ -87,22 +107,26 @@ unseeded batches stay reproducible after the fact.
 | `--bounds X Y` | `8.0 8.0` | half-extents of the waypoint box around the launch point |
 | `--min-waypoints` / `--max-waypoints` | `3` / `8` | waypoints per mission |
 | `--min-speed` / `--max-speed` | `0.5` / `2.0` | per-leg speed range in m/s |
-| `--min-altitude` / `--max-altitude` | `0.5` / `0.5` | platform altitude range; equal values keep it planar like the sample missions |
+| `--min-altitude` / `--max-altitude` | `0.5` / `0.5` | platform altitude range; equal values keep it planar like the reference missions |
 | `--min-spacing` | `2.0` | minimum XY distance between waypoints |
 | `--timeout` | `120.0` | per-run simulated seconds before the run is abandoned |
 | `--hover-altitude` | `3.0` | takeoff altitude |
 | `--output` | `results/runs.jsonl` | results file (appended) |
 | `--viewer` | off | watch each run instead of running headless |
 
-The same surface is available programmatically as `ScenarioConfig`:
+The scenario flags read their defaults straight off `ScenarioConfig`, so the CLI and the programmatic
+API cannot drift apart:
 
 ```python
-from controls import ScenarioConfig, generate_scenario, run_mission
+from drone_landing import ScenarioConfig, generate_scenario, run_mission
 
 scenario = generate_scenario(ScenarioConfig(max_speed=3.0), seed=42)
 result = run_mission(scenario.build_mission())
 print(result.success, result.xy_error_m)
 ```
+
+Paths, timeouts and the world limit live in `src/drone_landing/settings.py`; the controller's gains and
+thresholds live in `src/drone_landing/control/gains.py`.
 
 ## Landing outcomes
 
@@ -119,3 +143,25 @@ therefore keeps the raw controller verdict and the stricter one separately:
 Alongside those, every record carries the run id, seed, timestamp, the generated waypoints with their
 per-leg speeds and lengths, min/mean/max leg speed, mission duration, step count, final XY error, the
 final drone and platform positions, and the full config used to generate it.
+
+## Demos
+
+Interactive scripts that exercise one controller capability each, without a landing target:
+
+```bash
+python demos/takeoff_and_land.py   # climb, hold a hover, descend
+python demos/fly_directions.py     # tilt out and back along each compass direction
+python demos/yaw_rotation.py       # yaw left and right on the spot
+```
+
+Each opens the viewer and loops until you close the window.
+
+## Tests
+
+```bash
+pytest
+```
+
+The suite is headless and runs in a few seconds. `tests/test_run_mission_golden.py` pins three seeds
+to the exact results the simulation produced before the codebase was restructured, so a change that
+alters flight behaviour fails there rather than passing silently.
