@@ -14,6 +14,7 @@ from ..scenarios import ScenarioConfig, Scenario, generate_scenario
 from ..settings import DEFAULT_HOVER_ALTITUDE_M
 from ..simulation import (
     draw_state_label,
+    ensure_viewer_thread,
     prepare_flight,
     run_mission,
     run_viewer_loop,
@@ -25,6 +26,9 @@ _DEFAULT_SCENARIO = "straight-line"
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
+    # Every path here opens a viewer, so hand over to mjpython before doing work.
+    ensure_viewer_thread()
+
     if args.scenario == _RANDOM:
         return _fly_random(args.seed)
     return _fly_reference_mission(args.scenario, args.hover_altitude)

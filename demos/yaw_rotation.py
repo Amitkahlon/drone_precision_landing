@@ -11,6 +11,7 @@ from drone_landing.simulation import (
     Phase,
     PhaseCycle,
     draw_state_label,
+    ensure_viewer_thread,
     prepare_free_flight,
     run_viewer_loop,
 )
@@ -22,6 +23,8 @@ STOP_DURATION_S = 2.0
 
 
 def main() -> None:
+    ensure_viewer_thread()
+
     flight = prepare_free_flight()
     controller = flight.controller
     controller.take_off(HOVER_ALTITUDE_M)

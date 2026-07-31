@@ -50,6 +50,11 @@ drone-fly random --seed 12345  # replay seed 12345
 The two reference missions leave the viewer open after the drone settles, so you can inspect the final
 state; `random` closes as soon as the run resolves and prints the outcome.
 
+On macOS, opening a MuJoCo window requires the `mjpython` launcher, because Cocoa insists on owning the
+process's main thread. Any command that opens a viewer detects this and re-runs itself under `mjpython`
+automatically, so the commands above work as written; the same applies to `drone-batch --viewer` and the
+demo scripts. Headless runs are unaffected and use plain `python`.
+
 A mission is a start position for the drone plus a cyclic list of platform waypoints, where each
 waypoint carries the speed of the leg leaving it:
 
@@ -154,7 +159,8 @@ python demos/fly_directions.py     # tilt out and back along each compass direct
 python demos/yaw_rotation.py       # yaw left and right on the spot
 ```
 
-Each opens the viewer and loops until you close the window.
+Each opens the viewer and loops until you close the window, re-running itself under `mjpython` on macOS
+as described above.
 
 ## Tests
 

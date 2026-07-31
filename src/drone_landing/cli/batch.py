@@ -19,11 +19,14 @@ from ..settings import (
     DEFAULT_RUNS_FILE,
     DEFAULT_TIMEOUT_S,
 )
-from ..simulation import run_mission
+from ..simulation import ensure_viewer_thread, run_mission
 
 
 def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
+    if args.viewer:
+        ensure_viewer_thread()
+
     config = _config_from_args(args)
 
     # Drawn from system entropy when unset, then reported so any batch stays replayable.

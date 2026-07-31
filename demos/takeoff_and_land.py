@@ -11,6 +11,7 @@ import time
 from drone_landing import DroneState
 from drone_landing.simulation import (
     draw_state_label,
+    ensure_viewer_thread,
     prepare_free_flight,
     run_viewer_loop,
 )
@@ -20,6 +21,8 @@ HOVER_DURATION_S = 3.0
 
 
 def main() -> None:
+    ensure_viewer_thread()
+
     flight = prepare_free_flight()
     controller = flight.controller
     controller.take_off(HOVER_ALTITUDE_M)

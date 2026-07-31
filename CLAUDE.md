@@ -50,6 +50,11 @@ Layered, with dependencies pointing one way only:
 
 - The simulation is deterministic per seed. `tests/test_run_mission_golden.py` pins seeds 42, 2002 and
   7 to exact results; run `pytest` after any change under `control/`, `drone/` or `scene/`.
+- On macOS `mujoco.viewer.launch_passive` only works under the `mjpython` launcher, which reserves the
+  main thread for the UI. Entry points that open a viewer call
+  `drone_landing.simulation.ensure_viewer_thread()` first, which re-execs the process under `mjpython`.
+  Library code deliberately does not, so a bare `run_mission(viewer=True)` from a script needs
+  `mjpython` itself. Any new viewer entry point must make that call.
 - Preserve floating-point expressions verbatim when refactoring control code. Algebraically equivalent
   rewrites (for example `np.hypot` in place of an expanded `sqrt`) can shift a state transition by a
   step and break the golden results.
