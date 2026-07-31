@@ -12,7 +12,6 @@ class DroneState(Enum):
     GROUNDED = auto()
     TAKING_OFF = auto()
     HOVERING = auto()
-    FLYING = auto()
     TRACKING = auto()
     LANDING = auto()
 

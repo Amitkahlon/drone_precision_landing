@@ -28,8 +28,6 @@ class _MotorAccessor:
     @br.setter
     def br(self, v: float): self._ctrl[Motor.BR] = v
 
-    daaa = 5
-
     @property
     def bl(self) -> float: return float(self._ctrl[Motor.BL])
 

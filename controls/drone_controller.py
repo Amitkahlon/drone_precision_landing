@@ -19,7 +19,6 @@ _KD_Z = 0.4
 _KP_ATT = 2.0
 _KD_ATT = 0.5
 _KP_YAW = 2.0
-_KD_YAW = 0.5
 _KP_XY = 0.15
 _KD_XY = 0.3
 _MAX_D_YAW = 0.5
@@ -47,14 +46,6 @@ class DroneController:
 
     def set_target(self, target: LandingTarget) -> None:
         self._landing_target = target
-
-    @property
-    def target_position(self) -> np.ndarray | None:
-        return self._landing_target.position if self._landing_target else None
-
-    @property
-    def target_velocity(self) -> np.ndarray | None:
-        return self._landing_target.velocity if self._landing_target else None
 
     # --- public commands ---
 
@@ -85,14 +76,6 @@ class DroneController:
         self._target_pitch = 0.0
         actual = self.drone.sensors.angvel[2]
         d_yaw = float(np.clip(_KP_YAW * (yaw_rate - actual), -_MAX_D_YAW, _MAX_D_YAW))
-        self._apply_motors(d_yaw)
-
-    def rotate_to(self, target_yaw: float) -> None:
-        self._target_roll = 0.0
-        self._target_pitch = 0.0
-        yaw_error = (target_yaw - self._get_yaw() + np.pi) % (2 * np.pi) - np.pi
-        yaw_rate = self.drone.sensors.angvel[2]
-        d_yaw = float(np.clip(_KP_YAW * yaw_error - _KD_YAW * yaw_rate, -_MAX_D_YAW, _MAX_D_YAW))
         self._apply_motors(d_yaw)
 
     def track(self) -> None:
@@ -177,10 +160,6 @@ class DroneController:
         ff = self._landing_target.velocity if self._landing_target else np.zeros(3)
         self._target_pitch = float(np.clip(_KP_XY * error_x - _KD_XY * (vx - ff[0]), -_MAX_TILT, _MAX_TILT))
         self._target_roll = float(np.clip(-(_KP_XY * error_y - _KD_XY * (vy - ff[1])), -_MAX_TILT, _MAX_TILT))
-
-    def _get_yaw(self) -> float:
-        w, x, y, z = self.drone.sensors.quat
-        return float(np.arctan2(2.0 * (w * z + x * y), 1.0 - 2.0 * (y * y + z * z)))
 
     def _apply_motors(self, d_yaw: float = 0.0) -> None:
         base = self.drone.compute_hover_thrust()

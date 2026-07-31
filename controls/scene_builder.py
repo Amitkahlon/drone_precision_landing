@@ -29,12 +29,6 @@ class SceneBuilder:
     def add_drone(self, key: str, drone: Drone) -> None:
         self._drones[key] = drone
 
-    def get_drone(self, key: str) -> Drone:
-        return self._drones[key]
-
-    def get_moving_platform(self, key: str) -> MovingPlatform:
-        return self._moving_platforms[key]
-
     def apply_mission(self, mission: Mission) -> None:
         first = next(iter(self._drones.values()))
         self._place_drone(first, *mission.start)
