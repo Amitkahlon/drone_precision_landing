@@ -16,7 +16,7 @@ mission.add_checkpoint((-4,  4, 0.5), speed=1.2)
 mission.add_checkpoint((-4, -4, 0.5), speed=1.2)
 mission.add_checkpoint(( 4, -4, 0.5), speed=1.2)
 
-platform = mission.build_platform()
+platform = mission.build_moving_platform()
 
 scene = SceneBuilder(model_path)
 scene.add_moving_platform("target", platform)

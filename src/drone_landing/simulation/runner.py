@@ -33,7 +33,7 @@ def run_mission(
     Headless by default so batches run far faster than real time; viewer=True replays a
     single scenario in the passive viewer at wall-clock speed.
     """
-    target = mission.build_platform()
+    target = mission.build_moving_platform()
 
     scene = SceneBuilder(model_path)
     scene.add_moving_platform(_TARGET_KEY, target)
