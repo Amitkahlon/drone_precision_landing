@@ -8,12 +8,17 @@
 import argparse
 import json
 import random
-import statistics
 from datetime import datetime, timezone
 from pathlib import Path
 
+from ..batch import build_record, format_record, summarize
+from ..batch import report
 from ..scenarios import ScenarioConfig, generate_scenario
-from ..settings import DEFAULT_RUNS_FILE, SPEED_BUCKET_COUNT
+from ..settings import (
+    DEFAULT_HOVER_ALTITUDE_M,
+    DEFAULT_RUNS_FILE,
+    DEFAULT_TIMEOUT_S,
+)
 from ..simulation import run_mission
 
 
@@ -25,15 +30,36 @@ def main(argv: list[str] | None = None) -> int:
     base_seed = args.seed if args.seed is not None else random.SystemRandom().randrange(2 ** 32)
     batch_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
-    print(f"batch {batch_id}: {args.runs} run(s), base seed {base_seed}")
-    output_path = Path(args.output).resolve()
-    output_path.parent.mkdir(parents=True, exist_ok=True)
+    report.print_batch_start(batch_id, args.runs, base_seed)
 
+    runs_path = Path(args.output).resolve()
+    runs_path.parent.mkdir(parents=True, exist_ok=True)
+    records = _run_batch(args, config, batch_id, base_seed, runs_path)
+
+    summary = summarize(batch_id, base_seed, records, config)
+    report.print_summary(summary)
+
+    summary_path = runs_path.parent / f"summary_{batch_id}.json"
+    summary_path.write_text(json.dumps(summary, indent=2))
+    report.print_output_paths(runs_path, summary_path)
+    return 0
+
+
+def _run_batch(
+        args: argparse.Namespace,
+        config: ScenarioConfig,
+        batch_id: str,
+        base_seed: int,
+        runs_path: Path,
+) -> list[dict]:
+    """Fly every scenario, appending each record as soon as it finishes.
+
+    Flushed per run so a long batch that is interrupted still leaves usable data.
+    """
     records = []
-    with open(output_path, "a") as f:
+    with open(runs_path, "a") as results_file:
         for index in range(args.runs):
-            seed = base_seed + index
-            scenario = generate_scenario(config, seed)
+            scenario = generate_scenario(config, base_seed + index)
             result = run_mission(
                 scenario.build_mission(),
                 hover_altitude=args.hover_altitude,
@@ -41,44 +67,60 @@ def main(argv: list[str] | None = None) -> int:
                 viewer=args.viewer,
             )
 
-            record = _record(batch_id, index, scenario, result, config)
+            record = build_record(batch_id, index, scenario, result, config)
             records.append(record)
-            f.write(json.dumps(record) + "\n")
-            f.flush()
-            print(_format_run(record))
+            results_file.write(json.dumps(record) + "\n")
+            results_file.flush()
+            print(format_record(record))
+    return records
 
-    summary = _summarize(batch_id, base_seed, records, config)
-    _print_summary(summary)
-
-    summary_path = output_path.parent / f"summary_{batch_id}.json"
-    with open(summary_path, "w") as f:
-        json.dump(summary, f, indent=2)
-    print(f"\nresults appended to {output_path}\nsummary written to {summary_path}")
-    return 0
-
-
-# --- config ---
 
 def _parse_args(argv: list[str] | None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("-n", "--runs", type=int, default=20, help="scenarios to run in this batch")
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument("-n", "--runs", type=int, default=20,
+                        help="scenarios to run in this batch")
     parser.add_argument("--seed", type=int, default=None,
                         help="base RNG seed; run i uses seed+i, so --seed S --runs 1 replays run S")
-    parser.add_argument("--bounds", type=float, nargs=2, metavar=("X", "Y"), default=(8.0, 8.0),
+    parser.add_argument("--bounds", type=float, nargs=2, metavar=("X", "Y"),
+                        default=(ScenarioConfig.default("bounds_x"),
+                                 ScenarioConfig.default("bounds_y")),
                         help="half-extents of the waypoint box around the launch point")
-    parser.add_argument("--min-waypoints", type=int, default=3)
-    parser.add_argument("--max-waypoints", type=int, default=8)
-    parser.add_argument("--min-speed", type=float, default=0.5)
-    parser.add_argument("--max-speed", type=float, default=2.0)
-    parser.add_argument("--min-altitude", type=float, default=0.5)
-    parser.add_argument("--max-altitude", type=float, default=0.5)
-    parser.add_argument("--min-spacing", type=float, default=2.0,
-                        help="minimum XY distance between waypoints")
-    parser.add_argument("--timeout", type=float, default=120.0, help="per-run simulated seconds")
-    parser.add_argument("--hover-altitude", type=float, default=3.0)
+    parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT_S,
+                        help="per-run simulated seconds")
+    parser.add_argument("--hover-altitude", type=float, default=DEFAULT_HOVER_ALTITUDE_M)
     parser.add_argument("--output", default=str(DEFAULT_RUNS_FILE))
-    parser.add_argument("--viewer", action="store_true", help="watch each run in the passive viewer")
+    parser.add_argument("--viewer", action="store_true",
+                        help="watch each run in the passive viewer")
+
+    _add_config_args(parser)
     return parser.parse_args(argv)
+
+
+def _add_config_args(parser: argparse.ArgumentParser) -> None:
+    """Add the flags that map one-to-one onto ScenarioConfig fields.
+
+    Defaults are read off the dataclass so the CLI and the programmatic API
+    cannot drift apart.
+    """
+    fields = (
+        ("min-waypoints", int, None),
+        ("max-waypoints", int, None),
+        ("min-speed", float, None),
+        ("max-speed", float, None),
+        ("min-altitude", float, None),
+        ("max-altitude", float, None),
+        ("min-spacing", float, "minimum XY distance between waypoints"),
+    )
+    for flag, value_type, help_text in fields:
+        parser.add_argument(
+            f"--{flag}",
+            type=value_type,
+            default=ScenarioConfig.default(flag.replace("-", "_")),
+            help=help_text,
+        )
 
 
 def _config_from_args(args: argparse.Namespace) -> ScenarioConfig:
@@ -93,95 +135,6 @@ def _config_from_args(args: argparse.Namespace) -> ScenarioConfig:
         max_altitude=args.max_altitude,
         min_spacing=args.min_spacing,
     )
-
-
-# --- logging ---
-
-def _record(batch_id: str, index: int, scenario, result, config: ScenarioConfig) -> dict:
-    speeds = [wp.speed for wp in scenario.waypoints]
-    return {
-        "run_id": f"{batch_id}-{index:03d}",
-        "batch_id": batch_id,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        **scenario.to_dict(),
-        "leg_speed_min": round(min(speeds), 4),
-        "leg_speed_mean": round(statistics.fmean(speeds), 4),
-        "leg_speed_max": round(max(speeds), 4),
-        **result.to_dict(),
-        "config": config.to_dict(),
-    }
-
-
-def _format_run(record: dict) -> str:
-    outcome = "OK  " if record["success"] else "FAIL"
-    reason = record["failure_reason"] or "landed on platform"
-    error = f"{record['xy_error_m']:.3f}m" if record["xy_error_m"] is not None else "n/a"
-    return (
-        f"  {record['run_id']} seed={record['seed']} "
-        f"wp={record['num_waypoints']} speed={record['leg_speed_mean']:.2f} m/s "
-        f"t={record['duration_s']:.1f}s err={error} "
-        f"{outcome} ({reason})"
-    )
-
-
-# --- summary ---
-
-def _summarize(batch_id: str, base_seed: int, records: list[dict], config: ScenarioConfig) -> dict:
-    total = len(records)
-    successes = sum(r["success"] for r in records)
-    return {
-        "batch_id": batch_id,
-        "base_seed": base_seed,
-        "total_runs": total,
-        "successes": successes,
-        "success_rate": round(successes / total, 4) if total else 0.0,
-        "landed_but_off_platform": sum(r["failure_reason"] == "off_platform" for r in records),
-        "timeouts": sum(r["failure_reason"] == "timeout" for r in records),
-        "diverged": sum(r["failure_reason"] == "diverged" for r in records),
-        "aborted": sum(r["failure_reason"] == "aborted" for r in records),
-        "mean_duration_s": round(statistics.fmean([r["duration_s"] for r in records]), 3) if total else 0.0,
-        "by_waypoint_count": _breakdown(records, lambda r: r["num_waypoints"]),
-        "by_speed_bucket": _breakdown(records, lambda r: _speed_bucket(r, config)),
-        "failed_seeds": [r["seed"] for r in records if not r["success"]],
-    }
-
-
-def _breakdown(records: list[dict], key) -> dict:
-    groups: dict[str, list[dict]] = {}
-    for record in records:
-        groups.setdefault(str(key(record)), []).append(record)
-    return {
-        name: {
-            "runs": len(group),
-            "successes": sum(r["success"] for r in group),
-            "success_rate": round(sum(r["success"] for r in group) / len(group), 4),
-        }
-        for name, group in sorted(groups.items())
-    }
-
-
-def _speed_bucket(record: dict, config: ScenarioConfig) -> str:
-    span = config.max_speed - config.min_speed
-    width = span / SPEED_BUCKET_COUNT if span > 0 else 1.0
-    index = min(int((record["leg_speed_mean"] - config.min_speed) / width), SPEED_BUCKET_COUNT - 1)
-    low = config.min_speed + index * width
-    return f"{low:.2f}-{low + width:.2f}"
-
-
-def _print_summary(summary: dict) -> None:
-    print(
-        f"\n{summary['total_runs']} runs, {summary['successes']} succeeded "
-        f"({summary['success_rate'] * 100:.1f}%), "
-        f"{summary['landed_but_off_platform']} off-platform, "
-        f"{summary['timeouts']} timed out, {summary['diverged']} diverged"
-    )
-    for title, key in (("by waypoint count", "by_waypoint_count"), ("by mean leg speed", "by_speed_bucket")):
-        print(f"\n  {title}:")
-        for name, stats in summary[key].items():
-            print(f"    {name:>10}  {stats['successes']:>3}/{stats['runs']:<3} "
-                  f"{stats['success_rate'] * 100:5.1f}%")
-    if summary["failed_seeds"]:
-        print(f"\n  replay a failure: drone-batch --seed {summary['failed_seeds'][0]} --runs 1 --viewer")
 
 
 if __name__ == "__main__":

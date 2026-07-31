@@ -38,15 +38,18 @@ class SceneBuilder:
     def add_drone(self, key: str, drone: Drone) -> None:
         self._drones[key] = drone
 
-    def apply_mission(self, mission: Mission) -> None:
-        """Move the drone to the mission's start position.
+    def place_drone(self, position) -> None:
+        """Move the drone to `position`.
 
-        A mission describes one launch point, so only the first registered drone
-        is placed; the scene has never held more than one.
+        A scene describes one launch point, so only the first registered drone is
+        placed; it has never held more than one.
         """
         if not self._drones:
-            raise ValueError("apply_mission needs a drone; call add_drone after build")
-        self._place_drone(next(iter(self._drones.values())), *mission.start)
+            raise ValueError("no drone registered; call add_drone after build")
+        self._place_drone(next(iter(self._drones.values())), *position)
+
+    def apply_mission(self, mission: Mission) -> None:
+        self.place_drone(mission.start)
 
     # --- per-step update ---
 

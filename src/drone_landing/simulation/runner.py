@@ -1,23 +1,14 @@
 from pathlib import Path
 
-import mujoco
 import numpy as np
 
-from ..control import DroneController
 from ..drone import Drone
 from ..enums import DroneState
-from ..scene import Mission, SceneBuilder
-from ..settings import (
-    DEFAULT_HOVER_ALTITUDE_M,
-    DEFAULT_TIMEOUT_S,
-    MODEL_PATH,
-    WORLD_LIMIT_M,
-)
+from ..scene import Mission
+from ..settings import DEFAULT_HOVER_ALTITUDE_M, DEFAULT_TIMEOUT_S, MODEL_PATH, WORLD_LIMIT_M
+from .flight import prepare_flight
 from .result import RunResult, build_result
 from .viewer import draw_state_label, run_viewer_loop
-
-_TARGET_KEY = "target"
-_DRONE_KEY = "main"
 
 
 def run_mission(
@@ -33,58 +24,44 @@ def run_mission(
     Headless by default so batches run far faster than real time; viewer=True replays a
     single scenario in the passive viewer at wall-clock speed.
     """
-    target = mission.build_moving_platform()
+    flight = prepare_flight(mission, model_path)
+    flight.controller.take_off(hover_altitude)
 
-    scene = SceneBuilder(model_path)
-    scene.add_moving_platform(_TARGET_KEY, target)
-    model, data = scene.build()
-
-    drone = Drone(model, data)
-    controller = DroneController(drone)
-
-    scene.add_drone(_DRONE_KEY, drone)
-    scene.apply_mission(mission)
-
-    controller.set_target(target)
-    controller.take_off(hover_altitude)
-
-    timestep = model.opt.timestep
+    timestep = flight.timestep
     max_steps = int(timeout / timestep)
     steps = 0
 
     def advance() -> None:
         nonlocal steps
-        controller.step()
-        scene.step(timestep)
-        mujoco.mj_step(model, data)
+        flight.advance()
         steps += 1
 
     def still_flying() -> bool:
         return (
                 steps < max_steps
-                and controller.state != DroneState.GROUNDED
-                and not has_diverged(drone)
+                and flight.controller.state != DroneState.GROUNDED
+                and not has_diverged(flight.drone)
         )
 
     if viewer:
         def step_with_overlay(handle) -> None:
             advance()
-            draw_state_label(handle, drone, controller.state.name)
+            draw_state_label(handle, flight.drone, flight.controller.state.name)
 
-        aborted = run_viewer_loop(model, data, step_with_overlay, still_flying)
+        aborted = run_viewer_loop(flight.model, flight.data, step_with_overlay, still_flying)
     else:
         aborted = False
         while still_flying():
             advance()
 
     return build_result(
-        drone,
-        target,
-        controller.state,
+        flight.drone,
+        flight.target,
+        flight.controller.state,
         steps,
         timestep,
         aborted=aborted,
-        diverged=has_diverged(drone),
+        diverged=has_diverged(flight.drone),
     )
 
 

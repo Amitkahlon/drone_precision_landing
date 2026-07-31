@@ -5,36 +5,7 @@ import numpy as np
 
 from ..scene import Mission, Platform, Waypoint
 from ..settings import WAYPOINT_SPACING_ATTEMPTS
-
-
-@dataclass
-class ScenarioConfig:
-    """Bounds and ranges the generator samples a platform trajectory from."""
-
-    bounds_x: float = 8.0
-    bounds_y: float = 8.0
-    min_waypoints: int = 3
-    max_waypoints: int = 8
-    min_speed: float = 0.5
-    max_speed: float = 2.0
-    min_altitude: float = 0.5
-    max_altitude: float = 0.5
-    min_spacing: float = 2.0
-    start: tuple[float, float, float] = (0.0, 0.0, 0.0)
-
-    def to_dict(self) -> dict:
-        return {
-            "bounds_x": self.bounds_x,
-            "bounds_y": self.bounds_y,
-            "min_waypoints": self.min_waypoints,
-            "max_waypoints": self.max_waypoints,
-            "min_speed": self.min_speed,
-            "max_speed": self.max_speed,
-            "min_altitude": self.min_altitude,
-            "max_altitude": self.max_altitude,
-            "min_spacing": self.min_spacing,
-            "start": list(self.start),
-        }
+from .config import ScenarioConfig
 
 
 @dataclass
@@ -56,13 +27,14 @@ class Scenario:
     def legs(self) -> list[dict]:
         """One entry per leg of the cyclic path, each carrying the speed it is flown at."""
         legs = []
-        for i, waypoint in enumerate(self.waypoints):
-            nxt = self.waypoints[(i + 1) % len(self.waypoints)]
+        for index, waypoint in enumerate(self.waypoints):
+            next_index = (index + 1) % len(self.waypoints)
+            next_waypoint = self.waypoints[next_index]
             legs.append({
-                "from": i,
-                "to": (i + 1) % len(self.waypoints),
+                "from": index,
+                "to": next_index,
                 "speed": waypoint.speed,
-                "length": float(np.linalg.norm(nxt.position - waypoint.position)),
+                "length": float(np.linalg.norm(next_waypoint.position - waypoint.position)),
             })
         return legs
 
@@ -79,6 +51,7 @@ class Scenario:
 
 
 def generate_scenario(config: ScenarioConfig, seed: int) -> Scenario:
+    """Sample a platform route reproducibly from `seed`."""
     rng = random.Random(seed)
     count = rng.randint(config.min_waypoints, config.max_waypoints)
 
@@ -87,8 +60,8 @@ def generate_scenario(config: ScenarioConfig, seed: int) -> Scenario:
         positions.append(_sample_position(rng, config, positions))
 
     waypoints = [
-        Waypoint(tuple(pos), speed=rng.uniform(config.min_speed, config.max_speed))
-        for pos in positions
+        Waypoint(tuple(position), speed=rng.uniform(config.min_speed, config.max_speed))
+        for position in positions
     ]
     return Scenario(seed=seed, waypoints=waypoints, start=config.start)
 
@@ -122,6 +95,7 @@ def _sample_position(
 
 
 def _clearance(candidate: np.ndarray, placed: list[np.ndarray]) -> float:
+    """XY distance to the nearest already-placed waypoint."""
     if not placed:
         return float("inf")
-    return min(float(np.linalg.norm(candidate[:2] - p[:2])) for p in placed)
+    return min(float(np.linalg.norm(candidate[:2] - position[:2])) for position in placed)
