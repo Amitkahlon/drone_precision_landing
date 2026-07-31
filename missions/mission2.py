@@ -1,15 +1,11 @@
-import sys
-import os
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+import time
 
 import mujoco
 import mujoco.viewer
-import time
 import numpy as np
 
-from controls import Drone, DroneController, Mission, SceneBuilder, Platform
-
-model_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "models", "drone.xml")
+from drone_landing import Drone, DroneController, Mission, Platform, SceneBuilder
+from drone_landing.settings import MODEL_PATH as model_path
 
 mission = Mission(
     start=(0, 0, 0),

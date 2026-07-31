@@ -1,12 +1,14 @@
+from pathlib import Path
+
 import mujoco
 
-from .drone import Drone
+from ..drone import Drone
 from .mission import Mission
 from .moving_platform import MovingPlatform
 
 
 class SceneBuilder:
-    def __init__(self, xml_path: str):
+    def __init__(self, xml_path: str | Path):
         self._xml_path = xml_path
         self._drones: dict[str, Drone] = {}
         self._moving_platforms: dict[str, MovingPlatform] = {}

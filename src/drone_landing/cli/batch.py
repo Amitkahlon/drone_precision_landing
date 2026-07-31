@@ -1,26 +1,20 @@
 """Stress-test the landing controller across randomized scenarios.
 
-    python batch_runner.py --runs 50                 # headless batch
-    python batch_runner.py --seed 12345 --runs 1     # replay one scenario
-    python batch_runner.py --seed 12345 --runs 1 --viewer
+    drone-batch --runs 50                 # headless batch
+    drone-batch --seed 12345 --runs 1     # replay one scenario
+    drone-batch --seed 12345 --runs 1 --viewer
 """
 
 import argparse
 import json
-import os
 import random
 import statistics
-import sys
 from datetime import datetime, timezone
+from pathlib import Path
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-
-from controls import ScenarioConfig, generate_scenario, run_mission
-
-RESULTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
-DEFAULT_OUTPUT = os.path.join(RESULTS_DIR, "runs.jsonl")
-
-_SPEED_BUCKETS = 4
+from ..scenarios import ScenarioConfig, generate_scenario
+from ..settings import DEFAULT_RUNS_FILE, SPEED_BUCKET_COUNT
+from ..simulation import run_mission
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -32,10 +26,11 @@ def main(argv: list[str] | None = None) -> int:
     batch_id = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
 
     print(f"batch {batch_id}: {args.runs} run(s), base seed {base_seed}")
-    os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
+    output_path = Path(args.output).resolve()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
     records = []
-    with open(args.output, "a") as f:
+    with open(output_path, "a") as f:
         for index in range(args.runs):
             seed = base_seed + index
             scenario = generate_scenario(config, seed)
@@ -55,11 +50,10 @@ def main(argv: list[str] | None = None) -> int:
     summary = _summarize(batch_id, base_seed, records, config)
     _print_summary(summary)
 
-    summary_path = os.path.join(RESULTS_DIR, f"summary_{batch_id}.json")
-    os.makedirs(RESULTS_DIR, exist_ok=True)
+    summary_path = output_path.parent / f"summary_{batch_id}.json"
     with open(summary_path, "w") as f:
         json.dump(summary, f, indent=2)
-    print(f"\nresults appended to {args.output}\nsummary written to {summary_path}")
+    print(f"\nresults appended to {output_path}\nsummary written to {summary_path}")
     return 0
 
 
@@ -82,7 +76,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
                         help="minimum XY distance between waypoints")
     parser.add_argument("--timeout", type=float, default=120.0, help="per-run simulated seconds")
     parser.add_argument("--hover-altitude", type=float, default=3.0)
-    parser.add_argument("--output", default=DEFAULT_OUTPUT)
+    parser.add_argument("--output", default=str(DEFAULT_RUNS_FILE))
     parser.add_argument("--viewer", action="store_true", help="watch each run in the passive viewer")
     return parser.parse_args(argv)
 
@@ -168,8 +162,8 @@ def _breakdown(records: list[dict], key) -> dict:
 
 def _speed_bucket(record: dict, config: ScenarioConfig) -> str:
     span = config.max_speed - config.min_speed
-    width = span / _SPEED_BUCKETS if span > 0 else 1.0
-    index = min(int((record["leg_speed_mean"] - config.min_speed) / width), _SPEED_BUCKETS - 1)
+    width = span / SPEED_BUCKET_COUNT if span > 0 else 1.0
+    index = min(int((record["leg_speed_mean"] - config.min_speed) / width), SPEED_BUCKET_COUNT - 1)
     low = config.min_speed + index * width
     return f"{low:.2f}-{low + width:.2f}"
 
@@ -187,7 +181,7 @@ def _print_summary(summary: dict) -> None:
             print(f"    {name:>10}  {stats['successes']:>3}/{stats['runs']:<3} "
                   f"{stats['success_rate'] * 100:5.1f}%")
     if summary["failed_seeds"]:
-        print(f"\n  replay a failure: python batch_runner.py --seed {summary['failed_seeds'][0]} --runs 1 --viewer")
+        print(f"\n  replay a failure: drone-batch --seed {summary['failed_seeds'][0]} --runs 1 --viewer")
 
 
 if __name__ == "__main__":

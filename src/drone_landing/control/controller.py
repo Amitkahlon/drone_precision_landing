@@ -2,8 +2,8 @@ from typing import Protocol
 
 import numpy as np
 
-from .drone import Drone
-from .enums import DroneState
+from ..drone import Drone
+from ..enums import DroneState
 
 
 class LandingTarget(Protocol):

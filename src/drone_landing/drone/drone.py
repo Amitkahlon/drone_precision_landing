@@ -1,7 +1,7 @@
 import mujoco
 import numpy as np
 
-from .enums import Motor, Sensor
+from ..enums import Motor, Sensor
 
 
 class _MotorAccessor:

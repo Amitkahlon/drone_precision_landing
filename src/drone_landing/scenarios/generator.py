@@ -3,10 +3,8 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from .mission import Mission
-from .platform import Platform, Waypoint
-
-_SPACING_ATTEMPTS = 200
+from ..scene import Mission, Platform, Waypoint
+from ..settings import WAYPOINT_SPACING_ATTEMPTS
 
 
 @dataclass
@@ -108,7 +106,7 @@ def _sample_position(
     best: np.ndarray | None = None
     best_clearance = -1.0
 
-    for _ in range(_SPACING_ATTEMPTS):
+    for _ in range(WAYPOINT_SPACING_ATTEMPTS):
         candidate = np.array([
             rng.uniform(-config.bounds_x, config.bounds_x),
             rng.uniform(-config.bounds_y, config.bounds_y),

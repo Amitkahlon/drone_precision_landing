@@ -1,23 +1,21 @@
-import os
 import time
 from dataclasses import dataclass
+from pathlib import Path
 
 import mujoco
 import mujoco.viewer
 import numpy as np
 
-from .drone import Drone
-from .drone_controller import DroneController
-from .enums import DroneState
-from .mission import Mission
-from .moving_platform import MovingPlatform
-from .scene_builder import SceneBuilder
-
-DEFAULT_MODEL_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "..", "models", "drone.xml"
+from ..control import DroneController
+from ..drone import Drone
+from ..enums import DroneState
+from ..scene import Mission, MovingPlatform, SceneBuilder
+from ..settings import (
+    DEFAULT_HOVER_ALTITUDE_M,
+    DEFAULT_TIMEOUT_S,
+    MODEL_PATH,
+    WORLD_LIMIT_M,
 )
-
-_WORLD_LIMIT = 25.0  # floor plane is 20x20, so beyond this the drone is unrecoverable
 
 
 @dataclass
@@ -50,10 +48,10 @@ class RunResult:
 
 def run_mission(
         mission: Mission,
-        model_path: str = DEFAULT_MODEL_PATH,
+        model_path: str | Path = MODEL_PATH,
         *,
-        hover_altitude: float = 3.0,
-        timeout: float = 120.0,
+        hover_altitude: float = DEFAULT_HOVER_ALTITUDE_M,
+        timeout: float = DEFAULT_TIMEOUT_S,
         viewer: bool = False,
 ) -> RunResult:
     """Fly a mission end to end and report whether the drone landed on the platform.
@@ -166,7 +164,7 @@ def _finite(value) -> float | None:
 
 def _diverged(drone: Drone) -> bool:
     pos = drone.sensors.pos
-    return not np.all(np.isfinite(pos)) or bool(np.max(np.abs(pos)) > _WORLD_LIMIT)
+    return not np.all(np.isfinite(pos)) or bool(np.max(np.abs(pos)) > WORLD_LIMIT_M)
 
 
 def _update_label(viewer, drone: Drone, label: str) -> None:
