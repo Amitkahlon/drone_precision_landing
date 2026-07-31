@@ -29,11 +29,15 @@ class Flight:
     def timestep(self) -> float:
         return self.model.opt.timestep
 
+    def integrate(self) -> None:
+        """Advance the physics by one timestep, leaving control up to the caller."""
+        mujoco.mj_step(self.model, self.data)
+
     def advance(self) -> None:
         """Run one control step, move the platforms, then integrate the physics."""
         self.controller.step()
         self.scene.step(self.timestep)
-        mujoco.mj_step(self.model, self.data)
+        self.integrate()
 
 
 def prepare_flight(mission: Mission, model_path: str | Path = MODEL_PATH) -> Flight:
