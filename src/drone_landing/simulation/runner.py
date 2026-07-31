@@ -1,49 +1,23 @@
-import time
-from dataclasses import dataclass
 from pathlib import Path
 
 import mujoco
-import mujoco.viewer
 import numpy as np
 
 from ..control import DroneController
 from ..drone import Drone
 from ..enums import DroneState
-from ..scene import Mission, MovingPlatform, SceneBuilder
+from ..scene import Mission, SceneBuilder
 from ..settings import (
     DEFAULT_HOVER_ALTITUDE_M,
     DEFAULT_TIMEOUT_S,
     MODEL_PATH,
     WORLD_LIMIT_M,
 )
+from .result import RunResult, build_result
+from .viewer import draw_state_label, run_viewer_loop
 
-
-@dataclass
-class RunResult:
-    landed: bool  # the controller's own criterion: it reached DroneState.GROUNDED
-    on_platform: bool  # touchdown happened inside the platform footprint
-    success: bool
-    failure_reason: str | None
-    final_state: str
-    duration_s: float
-    steps: int
-    xy_error_m: float | None
-    drone_position: list[float | None]
-    platform_position: list[float | None]
-
-    def to_dict(self) -> dict:
-        return {
-            "landed": self.landed,
-            "on_platform": self.on_platform,
-            "success": self.success,
-            "failure_reason": self.failure_reason,
-            "final_state": self.final_state,
-            "duration_s": self.duration_s,
-            "steps": self.steps,
-            "xy_error_m": self.xy_error_m,
-            "drone_position": self.drone_position,
-            "platform_position": self.platform_position,
-        }
+_TARGET_KEY = "target"
+_DRONE_KEY = "main"
 
 
 def run_mission(
@@ -62,120 +36,62 @@ def run_mission(
     target = mission.build_platform()
 
     scene = SceneBuilder(model_path)
-    scene.add_moving_platform("target", target)
+    scene.add_moving_platform(_TARGET_KEY, target)
     model, data = scene.build()
 
     drone = Drone(model, data)
     controller = DroneController(drone)
 
-    scene.add_drone("main", drone)
+    scene.add_drone(_DRONE_KEY, drone)
     scene.apply_mission(mission)
 
     controller.set_target(target)
     controller.take_off(hover_altitude)
 
-    dt = model.opt.timestep
-    max_steps = int(timeout / dt)
+    timestep = model.opt.timestep
+    max_steps = int(timeout / timestep)
     steps = 0
-    aborted = False
 
     def advance() -> None:
+        nonlocal steps
         controller.step()
-        scene.step(dt)
+        scene.step(timestep)
         mujoco.mj_step(model, data)
+        steps += 1
 
-    def flying() -> bool:
-        return steps < max_steps and controller.state != DroneState.GROUNDED and not _diverged(drone)
+    def still_flying() -> bool:
+        return (
+                steps < max_steps
+                and controller.state != DroneState.GROUNDED
+                and not has_diverged(drone)
+        )
 
     if viewer:
-        with mujoco.viewer.launch_passive(model, data) as v:
-            while flying():
-                if not v.is_running():
-                    aborted = True
-                    break
-                step_start = time.time()
-
-                advance()
-                steps += 1
-
-                _update_label(v, drone, controller.state.name)
-                v.sync()
-
-                remaining = dt - (time.time() - step_start)
-                if remaining > 0:
-                    time.sleep(remaining)
-    else:
-        while flying():
+        def step_with_overlay(handle) -> None:
             advance()
-            steps += 1
+            draw_state_label(handle, drone, controller.state.name)
 
-    return _build_result(drone, target, controller.state, steps, dt, aborted)
-
-
-def _build_result(
-        drone: Drone,
-        target: MovingPlatform,
-        state: DroneState,
-        steps: int,
-        dt: float,
-        aborted: bool,
-) -> RunResult:
-    drone_pos = np.array([drone.get_x(), drone.get_y(), drone.get_z()])
-    platform_pos = target.position
-
-    delta = drone_pos[:2] - platform_pos[:2]
-    on_platform = (
-            abs(delta[0]) <= target.platform.width / 2
-            and abs(delta[1]) <= target.platform.depth / 2
-    )
-    landed = state == DroneState.GROUNDED
-    success = landed and on_platform
-
-    if success:
-        failure_reason = None
-    elif landed:
-        failure_reason = "off_platform"
-    elif aborted:
-        failure_reason = "aborted"
-    elif _diverged(drone):
-        failure_reason = "diverged"
+        aborted = run_viewer_loop(model, data, step_with_overlay, still_flying)
     else:
-        failure_reason = "timeout"
+        aborted = False
+        while still_flying():
+            advance()
 
-    return RunResult(
-        landed=landed,
-        on_platform=bool(on_platform),
-        success=bool(success),
-        failure_reason=failure_reason,
-        final_state=state.name,
-        duration_s=round(steps * dt, 3),
-        steps=steps,
-        xy_error_m=_finite(np.linalg.norm(delta)),
-        drone_position=[_finite(v) for v in drone_pos],
-        platform_position=[_finite(v) for v in platform_pos],
+    return build_result(
+        drone,
+        target,
+        controller.state,
+        steps,
+        timestep,
+        aborted=aborted,
+        diverged=has_diverged(drone),
     )
 
 
-def _finite(value) -> float | None:
-    """None rather than NaN/inf, so a diverged run still serialises to valid JSON."""
-    value = float(value)
-    return round(value, 4) if np.isfinite(value) else None
-
-
-def _diverged(drone: Drone) -> bool:
-    pos = drone.sensors.pos
-    return not np.all(np.isfinite(pos)) or bool(np.max(np.abs(pos)) > WORLD_LIMIT_M)
-
-
-def _update_label(viewer, drone: Drone, label: str) -> None:
-    viewer.user_scn.ngeom = 1
-    g = viewer.user_scn.geoms[0]
-    mujoco.mjv_initGeom(
-        g,
-        mujoco.mjtGeom.mjGEOM_SPHERE,
-        np.zeros(3), np.zeros(3), np.eye(3).flatten(),
-        np.array([0.0, 0.0, 0.0, 0.0]),
+def has_diverged(drone: Drone) -> bool:
+    """True once the drone is outside the world or its state has gone non-finite."""
+    position = drone.sensors.pos
+    return (
+            not np.all(np.isfinite(position))
+            or bool(np.max(np.abs(position)) > WORLD_LIMIT_M)
     )
-    g.pos[:] = [drone.get_x(), drone.get_y(), drone.get_z() + 0.4]
-    g.size[:] = [0.01, 0.01, 0.01]
-    g.label = label
