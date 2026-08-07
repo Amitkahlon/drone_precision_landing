@@ -23,6 +23,7 @@ def summarize(
         "success_rate": round(successes / total, 4) if total else 0.0,
         "landed_but_off_platform": _count_reason(records, "off_platform"),
         "timeouts": _count_reason(records, "timeout"),
+        "realign_exhausted": _count_reason(records, "realign_exhausted"),
         "diverged": _count_reason(records, "diverged"),
         "aborted": _count_reason(records, "aborted"),
         "mean_duration_s": (

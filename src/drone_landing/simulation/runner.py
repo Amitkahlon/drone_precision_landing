@@ -40,6 +40,7 @@ def run_mission(
         return (
                 steps < max_steps
                 and flight.controller.state != DroneState.GROUNDED
+                and not flight.controller.gave_up
                 and not has_diverged(flight.drone)
         )
 
@@ -62,6 +63,7 @@ def run_mission(
         timestep,
         aborted=aborted,
         diverged=has_diverged(flight.drone),
+        gave_up=flight.controller.gave_up,
     )
 
 

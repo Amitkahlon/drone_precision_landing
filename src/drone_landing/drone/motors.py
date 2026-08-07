@@ -11,7 +11,7 @@ class MotorBank:
     """
 
     def __init__(self, ctrl: np.ndarray):
-        object.__setattr__(self, '_ctrl', ctrl)
+        self._ctrl = ctrl
 
     @property
     def fl(self) -> float: return float(self._ctrl[Motor.FL])

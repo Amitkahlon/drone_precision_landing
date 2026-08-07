@@ -50,6 +50,7 @@ def build_result(
         dt: float,
         aborted: bool,
         diverged: bool,
+        gave_up: bool = False,
 ) -> RunResult:
     drone_pos = np.array([drone.get_x(), drone.get_y(), drone.get_z()])
     platform_pos = target.position
@@ -66,7 +67,7 @@ def build_result(
         landed=landed,
         on_platform=bool(on_platform),
         success=bool(success),
-        failure_reason=_failure_reason(success, landed, aborted, diverged),
+        failure_reason=_failure_reason(success, landed, aborted, diverged, gave_up),
         final_state=state.name,
         duration_s=round(steps * dt, 3),
         steps=steps,
@@ -81,6 +82,7 @@ def _failure_reason(
         landed: bool,
         aborted: bool,
         diverged: bool,
+        gave_up: bool = False,
 ) -> str | None:
     if success:
         return None
@@ -90,6 +92,8 @@ def _failure_reason(
         return "aborted"
     if diverged:
         return "diverged"
+    if gave_up:
+        return "realign_exhausted"
     return "timeout"
 
 

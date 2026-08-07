@@ -37,8 +37,10 @@ Layered, with dependencies pointing one way only:
 - `drone/` — `Drone` wraps the MuJoCo model and data; `MotorBank` and `SensorArray` give named access
   to `data.ctrl` and `data.sensordata`.
 - `control/` — `DroneController` is purely the state machine
-  (`GROUNDED → TAKING_OFF → TRACKING → LANDING → GROUNDED`, with `HOVERING` when no target is set).
-  Every PD loop is in `ThrustMixer`; every tuning constant is in `gains.py`.
+ (`GROUNDED → WAITING_TO_LAUNCH → TAKING_OFF → TRACKING → LANDING → GROUNDED`, with `HOVERING` when no
+ target is set, `REALIGNING` between `LANDING` and itself when the platform pulls out from under a
+ descent, and `WAITING_TO_LAUNCH` passed straight through when the pad is already clear).
+ Every PD loop is in `ThrustMixer`; every tuning constant is in `gains.py`.
 - `scene/` — `Mission` is a scenario definition, `Platform`/`Waypoint`/`MovingPlatform` are the target,
   and `SceneBuilder` compiles them into a MuJoCo model.
 - `simulation/` — `prepare_flight` assembles a `Flight`, `run_mission` drives it to an outcome, and

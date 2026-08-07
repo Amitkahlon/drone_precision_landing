@@ -12,7 +12,7 @@ class Drone:
         self._data = data
         self._body_id = model.body("drone").id
         joint_id = model.body_jntadr[self._body_id]
-        self.qpos_adr = int(model.jnt_qposadr[joint_id])
+        self.qpos_adr = int(model.jnt_qposadr[joint_id])  # used once at construction
         self.motors = MotorBank(data.ctrl)
         self.sensors = SensorArray(model, data)
 
@@ -31,3 +31,7 @@ class Drone:
     @property
     def max_thrust(self) -> float:
         return float(self._model.actuator_ctrlrange[0, 1])
+
+    @property
+    def timestep(self) -> float:
+        return float(self._model.opt.timestep)

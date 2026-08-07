@@ -12,10 +12,11 @@ class SensorArray:
     """
 
     def __init__(self, model: mujoco.MjModel, data: mujoco.MjData):
-        object.__setattr__(self, '_model', model)
-        object.__setattr__(self, '_data', data)
+        self._model = model
+        self._data = data
 
     def _read(self, sensor: Sensor) -> np.ndarray:
+        """Read a sensor from the model."""
         sensor_id = self._model.sensor(sensor).id
         address = self._model.sensor_adr[sensor_id]
         return self._data.sensordata[address:address + self._model.sensor_dim[sensor_id]]

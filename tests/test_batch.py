@@ -66,17 +66,19 @@ def test_summary_counts_each_failure_mode():
         make_record(3, success=False, failure_reason="timeout"),
         make_record(4, success=False, failure_reason="diverged"),
         make_record(5, success=False, failure_reason="aborted"),
+        make_record(6, success=False, failure_reason="realign_exhausted"),
     ]
 
     summary = summarize("BATCH", 1, records, ScenarioConfig())
 
-    assert summary["total_runs"] == 5
+    assert summary["total_runs"] == 6
     assert summary["successes"] == 1
-    assert summary["success_rate"] == 0.2
+    assert summary["success_rate"] == 0.1667
     assert summary["landed_but_off_platform"] == 1
     assert summary["timeouts"] == 1
     assert summary["diverged"] == 1
     assert summary["aborted"] == 1
+    assert summary["realign_exhausted"] == 1
     assert summary["failed_seeds"] == [r["seed"] for r in records[1:]]
 
 

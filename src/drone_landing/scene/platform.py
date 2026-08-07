@@ -73,7 +73,7 @@ class MovingPlatform:
         elif distance > 0:
             self._position += (direction / distance) * travel
 
-        if self._mocap_id is not None:
+        if self._data is not None:
             self._data.mocap_pos[self._mocap_id] = self._position
 
     def _next_index(self) -> int:

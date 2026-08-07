@@ -21,7 +21,9 @@ def print_summary(summary: dict) -> None:
         f"\n{summary['total_runs']} runs, {summary['successes']} succeeded "
         f"({summary['success_rate'] * 100:.1f}%), "
         f"{summary['landed_but_off_platform']} off-platform, "
-        f"{summary['timeouts']} timed out, {summary['diverged']} diverged"
+        f"{summary['timeouts']} timed out, "
+        f"{summary['realign_exhausted']} gave up realigning, "
+        f"{summary['diverged']} diverged"
     )
     for title, key in _BREAKDOWNS:
         print(f"\n  {title}:")

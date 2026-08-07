@@ -72,22 +72,22 @@ mission.add_checkpoint((-5, 5, 0.5), speed=0.8)
 drone-batch --runs 50
 ```
 
-Runs are roughly 40x faster than real time, so 50 scenarios take about 15 seconds. Each run appends a
+Runs are roughly 40x faster than real time, so 50 scenarios take about 20 seconds. Each run appends a
 JSON object to `results/runs.jsonl` relative to the working directory, so repeated batches accumulate
 into one dataset. A per-batch summary is written beside it as `summary_<batch_id>.json` and printed:
 
 ```
-50 runs, 39 succeeded (78.0%), 11 off-platform, 0 timed out, 0 diverged
+50 runs, 49 succeeded (98.0%), 0 off-platform, 0 timed out, 1 gave up realigning, 0 diverged
 
   by waypoint count:
-             3    8/10   80.0%
-             4    6/8    75.0%
+             3   12/13   92.3%
+             4    5/5   100.0%
              ...
   by mean leg speed:
-     0.50-0.88    2/2   100.0%
-     0.88-1.25   19/25   76.0%
-     1.25-1.62   17/22   77.3%
-     1.62-2.00    1/1   100.0%
+     0.50-0.88    1/1   100.0%
+     0.88-1.25   22/22  100.0%
+     1.25-1.62   24/25   96.0%
+     1.62-2.00    2/2   100.0%
 ```
 
 ### Replaying a failure
@@ -143,7 +143,24 @@ therefore keeps the raw controller verdict and the stricter one separately:
 - `on_platform` — touchdown happened inside the platform footprint.
 - `success` — both of the above.
 - `failure_reason` — `off_platform`, `timeout` (never touched down within `--timeout`), `diverged`
-  (the drone left the 20x20 m world), `aborted` (viewer closed), or `null` on success.
+  (the drone left the 20x20 m world), `realign_exhausted` (gave up lining up for a descent),
+  `aborted` (viewer closed), or `null` on success.
+
+A descent is not committed once begun. If the platform reaches a waypoint and heads off in a new
+direction while the drone is already sinking, the horizontal error grows past `REALIGN_THRESHOLD_M`,
+the drone breaks off into `REALIGNING` to hold altitude over the platform, and it resumes the descent
+once it has held alignment for long enough. That required hold grows with each attempt: the platform's
+route is a cycle, so a retry that always took the same time would keep re-approaching at the same point
+in that cycle and meet the same turn. After `MAX_REALIGN_ATTEMPTS` broken-off descents, or one attempt
+spending `REALIGN_TIMEOUT_S` without lining up, the run ends as `realign_exhausted` rather than
+touching down beside the platform.
+
+Waypoints are not generated around the drone's start, so a platform route can run straight over the
+launch point, and a platform is a mocap body that is unaffected by the collision and simply bulldozes
+whatever it meets. The drone therefore sits in `WAITING_TO_LAUNCH` with its motors cut until the
+platform will stay `LAUNCH_CLEARANCE_M` away for the whole of `LAUNCH_WINDOW_S`, which is long enough
+to complete the climb. A run that never gets that window reports `WAITING_TO_LAUNCH` as its
+`final_state`. About one scenario in ten waits at all, typically for a second or so.
 
 Alongside those, every record carries the run id, seed, timestamp, the generated waypoints with their
 per-leg speeds and lengths, min/mean/max leg speed, mission duration, step count, final XY error, the
